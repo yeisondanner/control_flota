@@ -52,7 +52,7 @@ if (!empty($_POST["btningresar"])) {
                         // Usuario es conductor válido - guardar id_conductor y redirigir a kilometrajes.php
                         $_SESSION["id_conductor"] = $conductor->id_conductor;
                         $_SESSION["es_conductor"] = true;
-                        header("location:../vista/kilometrajes.php");
+                        header("location:../kilometrajes.php");
                         exit;
                     } else {
                         // Usuario tiene rol Conductor pero no tiene registro en tabla conductor
@@ -61,7 +61,7 @@ if (!empty($_POST["btningresar"])) {
                 } else {
                     // Usuario normal (no conductor)
                     $_SESSION["es_conductor"] = false;
-                    header("location:../vista/inicio.php");
+                    header("location:../inicio.php");
                     exit;
                 }
             } else {
