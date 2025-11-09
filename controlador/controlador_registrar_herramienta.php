@@ -15,7 +15,7 @@ if (isset($_POST['btnregistrar'])) {
 
     if ($count > 0) {
         // Si ya existe, mostrar mensaje de error
-        $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'El nombre de la herramienta ya está registrado.'];
+        $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'El nombre del repuesto ya está registrado.'];
     } else {
         // Si no existe, insertar la nueva herramienta en la base de datos
         $sqlInsert = "INSERT INTO herramientas (nombre, descripcion) VALUES (?, ?)";
@@ -23,10 +23,10 @@ if (isset($_POST['btnregistrar'])) {
         $stmtInsert->bind_param("ss", $nombreHerramienta, $descripcion);
         if ($stmtInsert->execute()) {
             // Si la inserción es exitosa, mostrar mensaje de éxito
-            $_SESSION['flash'] = ['tipo' => 'success', 'titulo' => 'Éxito', 'mensaje' => 'Herramienta registrada con éxito.'];
+            $_SESSION['flash'] = ['tipo' => 'success', 'titulo' => 'Éxito', 'mensaje' => 'Repuesto registrado con éxito.'];
         } else {
             // Si hubo un error al insertar
-            $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'Hubo un problema al registrar la herramienta.'];
+            $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'Hubo un problema al registrar el repuesto.'];
         }
         $stmtInsert->close();
     }

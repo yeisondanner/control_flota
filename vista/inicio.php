@@ -1,117 +1,111 @@
 <?php
 session_start();
-if (empty($_SESSION['id'])) {
+if (empty($_SESSION['nombre']) && empty($_SESSION['apellidos'])) {
   header('location:login/login.php');
   exit;
 }
+include "../modelo/conexion.php";
+date_default_timezone_set('America/Lima');
 
-/* ========= CONEXIÓN PDO ========= */
-try {
-  $pdo = new PDO(
-    'mysql:host=127.0.0.1;dbname=sis_vpice;charset=utf8mb4',
-    'root',
-    '',
-    [
-      PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-      PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-    ]
-  );
-} catch (Exception $e) {
-  die("Error de conexión: " . $e->getMessage());
+/* ========== KPIs ========== */
+
+// Total de vehículos
+$kpi_vehiculos = (int)($conexion->query("SELECT COUNT(*) AS c FROM vehiculos")->fetch_assoc()['c'] ?? 0);
+
+// Total de conductores (vinculados a usuario/persona)
+$kpi_conductores = (int)($conexion->query("SELECT COUNT(*) AS c FROM conductor")->fetch_assoc()['c'] ?? 0);
+
+// Unidades mineras
+$kpi_unidades = (int)($conexion->query("SELECT COUNT(*) AS c FROM unidad_minera")->fetch_assoc()['c'] ?? 0);
+
+// Mantenimientos del mes actual
+$kpi_mant_mes = (int)($conexion->query("
+    SELECT COUNT(*) AS c
+    FROM mantenimientos
+    WHERE YEAR(fecha) = YEAR(CURDATE()) AND MONTH(fecha) = MONTH(CURDATE())
+")->fetch_assoc()['c'] ?? 0);
+
+// Gasto de mantenimiento del mes actual
+$row_gasto = $conexion->query("
+    SELECT ROUND(COALESCE(SUM(gasto_mantenimiento),0),2) AS total
+    FROM mantenimientos
+    WHERE YEAR(fecha) = YEAR(CURDATE()) AND MONTH(fecha) = MONTH(CURDATE())
+")->fetch_assoc();
+$kpi_gasto_mes = $row_gasto ? $row_gasto['total'] : 0;
+
+// Certificados próximos a vencer en 30 días
+$kpi_cert_prox = (int)($conexion->query("
+    SELECT COUNT(*) AS c
+    FROM certificados
+    WHERE fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+")->fetch_assoc()['c'] ?? 0);
+
+/* ========== CHART: Mantenimientos últimos 6 meses (Preventivo/Correctivo) ========== */
+$mant_labels = [];
+$mant_prev = [];
+$mant_corr = [];
+$res = $conexion->query("
+    SELECT DATE_FORMAT(fecha, '%Y-%m') AS ym,
+           SUM(CASE WHEN tipo='Preventivo' THEN 1 ELSE 0 END) AS prev_count,
+           SUM(CASE WHEN tipo='Correctivo' THEN 1 ELSE 0 END) AS corr_count
+    FROM mantenimientos
+    WHERE fecha >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 5 MONTH)
+    GROUP BY ym
+    ORDER BY ym
+");
+while ($r = $res->fetch_assoc()) {
+  $mant_labels[] = $r['ym'];
+  $mant_prev[] = (int)$r['prev_count'];
+  $mant_corr[] = (int)$r['corr_count'];
 }
 
-/* ========= HELPERS ========= */
-function one($pdo, $sql, $params = [])
-{
-  $st = $pdo->prepare($sql);
-  $st->execute($params);
-  $v = $st->fetchColumn();
-  return $v !== false ? $v : 0;
+/* ========== CHART: Kilometraje semanal (últimas 8 semanas ISO) ========== */
+$kms_labels = [];
+$kms_values = [];
+$res = $conexion->query("
+    SELECT YEARWEEK(fecha_registro, 3) AS yws,
+           ROUND(COALESCE(SUM(kilometraje),0),2) AS km_total
+    FROM kilometraje_semanal
+    WHERE fecha_registro >= DATE_SUB(CURDATE(), INTERVAL 8 WEEK)
+    GROUP BY yws
+    ORDER BY yws
+");
+while ($r = $res->fetch_assoc()) {
+  $kms_labels[] = $r['yws'];
+  $kms_values[] = (float)$r['km_total'];
 }
-function allRows($pdo, $sql, $params = [])
-{
-  $st = $pdo->prepare($sql);
-  $st->execute($params);
-  return $st->fetchAll();
-}
 
-/* ========= FECHAS ========= */
-$hoy    = date('Y-m-d');
-$en15   = date('Y-m-d', strtotime('+15 days'));
-$hace30 = date('Y-m-d', strtotime('-30 days'));
+/* ========== CHART: Certificados por estado ========== */
+$cert_vig = (int)($conexion->query("
+    SELECT COUNT(*) AS c
+    FROM certificados
+    WHERE fecha_vencimiento >= CURDATE()
+")->fetch_assoc()['c'] ?? 0);
+$cert_prox = $kpi_cert_prox;
+$cert_venc = (int)($conexion->query("
+    SELECT COUNT(*) AS c
+    FROM certificados
+    WHERE fecha_vencimiento < CURDATE()
+")->fetch_assoc()['c'] ?? 0);
 
-/* ========= KPIs ========= */
-$kpi_activos = one($pdo, "SELECT COUNT(*) FROM habilitacion_personal WHERE estado='ACTIVO'");
-$kpi_cesados = one($pdo, "SELECT COUNT(*) FROM habilitacion_personal WHERE estado='CESADO'");
-$kpi_post_30 = one($pdo, "SELECT COUNT(*) FROM postulante WHERE fecha_postulacion >= ?", [$hace30]);
-
-$kpi_activo_30 = one($pdo, "SELECT COUNT(*) FROM habilitacion_personal WHERE DATE(fecha_registro) >= ?", [$hace30]);
-$kpi_cesado_30 = one($pdo, "SELECT COUNT(*) FROM habilitacion_personal WHERE estado='CESADO' AND DATE(fecha_cese) >= ?", [$hace30]);
-
-$kpi_contratos_vigentes    = one($pdo, "SELECT COUNT(*) FROM contratos WHERE fecha_inicio <= ? AND fecha_fin >= ?", [$hoy, $hoy]);
-$kpi_contratos_por_vencer  = one($pdo, "SELECT COUNT(*) FROM contratos WHERE fecha_fin BETWEEN ? AND ?", [$hoy, $en15]);
-
-function riskClass($n)
-{
-  if ($n >= 10) return 'kpi-danger';
-  if ($n >= 5)  return 'kpi-warning';
-  return 'kpi-success';
-}
-$kpi_vencer_class = riskClass($kpi_contratos_por_vencer);
-
-/* ========= GRÁFICOS ========= */
-// Altas/Bajas últimas 4 semanas
-$altas_bajas = allRows($pdo, "
-  WITH RECURSIVE semanas AS (
-    SELECT 0 AS w UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
-  )
-  SELECT 
-    DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL w WEEK), '%Y-%u') AS semana_iso,
-    SUM(CASE WHEN DATE(hp.fecha_registro) BETWEEN DATE_SUB(CURDATE(), INTERVAL (w+1) WEEK) + INTERVAL 1 DAY AND DATE_SUB(CURDATE(), INTERVAL w WEEK) THEN 1 ELSE 0 END) AS altas,
-    SUM(CASE WHEN hp.estado='CESADO' AND DATE(hp.fecha_cese) BETWEEN DATE_SUB(CURDATE(), INTERVAL (w+1) WEEK) + INTERVAL 1 DAY AND DATE_SUB(CURDATE(), INTERVAL w WEEK) THEN 1 ELSE 0 END) AS bajas
-  FROM semanas s
-  CROSS JOIN habilitacion_personal hp
-  GROUP BY 1
-  ORDER BY 1 ASC
+/* ========== TABLA: Certificados próximos (30 días) ========== */
+$cert_prox_rows = $conexion->query("
+    SELECT v.matricula, c.tipo_certificado, c.fecha_emision, c.fecha_vencimiento,
+           DATEDIFF(c.fecha_vencimiento, CURDATE()) AS dias_restantes
+    FROM certificados c
+    JOIN vehiculos v ON v.id_vehiculo = c.id_vehiculo
+    WHERE c.fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+    ORDER BY c.fecha_vencimiento ASC
 ");
 
-// Cursos últimos 30 días
-$cursos_resumen = allRows($pdo, "
-  SELECT resultado, COUNT(*) total
-  FROM resultado_cursos_postulante
-  WHERE fecha_resultado >= ?
-  GROUP BY resultado
-", [$hace30]);
-
-/* ========= TABLAS ========= */
-$contratos_vencer = allRows($pdo, "
-  SELECT c.idcontrato, p.nombres, p.apellidos, pr.nombre_proyecto, c.cargo, c.fecha_fin
-  FROM contratos c
-  JOIN habilitacion_personal hp ON hp.idhabilitacion_personal = c.idhabilitacion_personal
-  JOIN postulante po ON po.id_postulante = hp.id_postulante
-  JOIN persona p ON p.id_persona = po.id_persona
-  JOIN proyectos pr ON pr.id_proyectos = c.id_proyectos
-  WHERE c.fecha_fin BETWEEN ? AND ?
-  ORDER BY c.fecha_fin ASC
-", [$hoy, $en15]);
-
-$examenes = allRows($pdo, "
-  SELECT remp.idresultado_examenmedico_postulante, p.nombres, p.apellidos, remp.fecha_resultado, remp.resultado, remp.observaciones
-  FROM resultado_examenmedico_postulante remp
-  JOIN postulante_examenmedico pem ON pem.id_postulante_examenmedico = remp.id_postulante_examenmedico
-  JOIN postulante po ON po.id_postulante = pem.id_postulante
-  JOIN persona p ON p.id_persona = po.id_persona
-  WHERE remp.fecha_resultado >= ?
-  ORDER BY remp.fecha_resultado DESC, remp.idresultado_examenmedico_postulante DESC
-", [$hace30]);
-
-$postulantes_recientes = allRows($pdo, "
-  SELECT po.id_postulante, p.nombres, p.apellidos, po.fecha_postulacion, pr.nombre_proyecto, po.puesto_postulado, po.estado
-  FROM postulante po
-  JOIN persona p ON p.id_persona = po.id_persona
-  JOIN proyectos pr ON pr.id_proyectos = po.id_proyectos
-  ORDER BY po.fecha_postulacion DESC, po.id_postulante DESC
-  LIMIT 10
+/* ========== TABLA: Últimos 10 mantenimientos ========== */
+$ult_mant = $conexion->query("
+    SELECT m.fecha, v.matricula, v.marca, v.modelo, m.tipo,
+           m.kilometraje_actual, m.kilometraje_proximo, m.gasto_mantenimiento
+    FROM mantenimientos m
+    JOIN vehiculos v ON v.id_vehiculo = m.id_vehiculo
+    ORDER BY m.fecha DESC
+    LIMIT 10
 ");
 ?>
 
@@ -119,20 +113,48 @@ $postulantes_recientes = allRows($pdo, "
 <?php require('./layout/sidebar.php'); ?>
 
 <style>
-  /* Menú activo */
   ul li:nth-child(1) .activo {
     background: #0b96d6 !important;
   }
 
-  /* Titular */
+  /* Ajusta el índice si tu sidebar cambia */
+
   h4.text-secondary {
     color: #374151 !important;
     font-weight: 800;
     letter-spacing: .3px;
   }
 
-  /* Card contenedor */
-  .card-like {
+  .card-kpi {
+    background: #fff;
+    border: 1px solid #eef2f7;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .04);
+  }
+
+  .card-kpi .kpi-label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+
+  .card-kpi .kpi-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #111827;
+    margin-top: 6px;
+  }
+
+  .card-kpi .kpi-sub {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .block {
     background: #fff;
     border: 1px solid #eef2f7;
     border-radius: 12px;
@@ -141,197 +163,393 @@ $postulantes_recientes = allRows($pdo, "
     margin-top: 14px;
   }
 
-  /* Grid */
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    gap: 16px;
-  }
-
-  @media (max-width:1024px) {
-    .grid {
-      grid-template-columns: repeat(6, 1fr);
-    }
-  }
-
-  @media (max-width:640px) {
-    .grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  /* Tarjeta simple (contenedor de gráfico/tabla) */
-  .card {
-    background: #fff;
-    border: 1px solid #eef2f7;
-    border-radius: 12px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, .04);
-    padding: 16px;
-  }
-
-  /* Encabezados de tabla (azul, igual a listas) */
   .table thead th,
-  .thead-dark th,
-  .modal .table thead th {
+  .thead-dark th {
     background: #0b96d6 !important;
     color: #fff !important;
     border-color: #0b86c0 !important;
   }
 
-  /* ===== KPIs ===== */
-  :root {
-    --c-primary: #0b96d6;
-    --c-success: #10b981;
-    --c-warning: #f59e0b;
-    --c-danger: #ef4444;
-    --c-neutral: #6b7280;
+  /* Colores EXACTOS de los botones DataTables */
+  .dt-button {
+    border: none !important;
+    border-radius: 6px !important;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    margin-right: 6px !important;
+    color: #fff !important;
   }
 
-  .kpi-card {
-    border-radius: 14px;
-    padding: 18px;
-    background: #fff;
-    border: 1px solid #eef2f7;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, .06);
-    position: relative;
-    overflow: hidden;
-    border-left: 4px solid transparent;
+  .dt-button.buttons-excel {
+    background-color: #28a745 !important;
   }
 
-  .kpi-title {
-    font-size: .85rem;
-    color: var(--c-neutral);
-    margin: 0 0 6px;
-    font-weight: 600;
-    letter-spacing: .3px;
+  .dt-button.buttons-pdf {
+    background-color: #dc3545 !important;
   }
 
-  .kpi-value {
-    font-size: 1.7rem;
-    font-weight: 800;
-    margin: 0;
+  @media (max-width: 767.98px) {
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
   }
 
-  .kpi-primary {
-    border-left-color: var(--c-primary);
+  @media (min-width: 768px) {
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
   }
 
-  .kpi-success {
-    border-left-color: var(--c-success);
-  }
-
-  .kpi-warning {
-    border-left-color: var(--c-warning);
-  }
-
-  .kpi-danger {
-    border-left-color: var(--c-danger);
-  }
-
-  .kpi-icon {
-    position: absolute;
-    right: 12px;
-    top: 12px;
-    opacity: .12;
-    width: 48px;
-    height: 48px;
-    color: #000;
-  }
-
-  .mini-meter {
-    height: 8px;
-    width: 100%;
-    background: #e5e7eb;
-    border-radius: 999px;
-    overflow: hidden;
-  }
-
-  .mini-meter>span {
-    display: block;
-    height: 100%;
-    background: var(--c-success);
-  }
-
-  canvas {
-    max-width: 100%;
+  @media (min-width: 1200px) {
+    .kpi-grid {
+      grid-template-columns: repeat(6, 1fr);
+    }
   }
 </style>
 
 <div class="page-content">
-  <h4 class="text-center text-secondary">CONTROL DE FLOTA VyPICE S.A.C</h4>
+  <h4 class="text-center text-secondary">CONTROL DE FLOTA VyPICE</h4>
 
-  
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="card-kpi">
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="kpi-label">Vehículos</span>
+        <i class="fa-solid fa-truck fa-lg" style="color:#0b96d6"></i>
+      </div>
+      <div class="kpi-value"><?= number_format($kpi_vehiculos) ?></div>
+      <div class="kpi-sub">&nbsp;</div>
+    </div>
+
+    <div class="card-kpi">
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="kpi-label">Conductores</span>
+        <i class="fa-solid fa-id-card fa-lg" style="color:#0b96d6"></i>
+      </div>
+      <div class="kpi-value"><?= number_format($kpi_conductores) ?></div>
+      <div class="kpi-sub">&nbsp;</div>
+    </div>
+
+    <div class="card-kpi">
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="kpi-label">Unidades Mineras</span>
+        <i class="fa-solid fa-industry fa-lg" style="color:#0b96d6"></i>
+      </div>
+      <div class="kpi-value"><?= number_format($kpi_unidades) ?></div>
+      <div class="kpi-sub">&nbsp;</div>
+    </div>
+
+    <div class="card-kpi">
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="kpi-label">Mantenimientos (mes)</span>
+        <i class="fa-solid fa-wrench fa-lg" style="color:#0b96d6"></i>
+      </div>
+      <div class="kpi-value"><?= number_format($kpi_mant_mes) ?></div>
+      <div class="kpi-sub"><?= date('F Y') ?></div>
+    </div>
+
+    <div class="card-kpi">
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="kpi-label">Gasto mant. (mes)</span>
+        <i class="fa-solid fa-sack-dollar fa-lg" style="color:#0b96d6"></i>
+      </div>
+      <div class="kpi-value">S/ <?= number_format((float)$kpi_gasto_mes, 2) ?></div>
+      <div class="kpi-sub"><?= date('F Y') ?></div>
+    </div>
+
+    <div class="card-kpi">
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="kpi-label">Cert. próximos (30d)</span>
+        <i class="fa-solid fa-hourglass-half fa-lg" style="color:#0b96d6"></i>
+      </div>
+      <div class="kpi-value"><?= number_format($kpi_cert_prox) ?></div>
+      <div class="kpi-sub">Desde hoy</div>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="block">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="m-0 text-secondary">Mantenimientos últimos 6 meses</h6>
+        </div>
+        <canvas id="chartMant6m" height="200"></canvas>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="block">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="m-0 text-secondary">Kilometraje semanal (8 semanas)</h6>
+        </div>
+        <canvas id="chartKms8w" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-xl-4">
+      <div class="block">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="m-0 text-secondary">Certificados por estado</h6>
+        </div>
+        <canvas id="chartCert" height="250"></canvas>
+      </div>
+    </div>
+
+    <div class="col-xl-8">
+      <div class="block">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="m-0 text-secondary">Próximos certificados a vencer (30 días)</h6>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover" id="tabla_cert_prox">
+            <thead class="thead-dark">
+              <tr>
+                <th>Vehículo</th>
+                <th>Tipo</th>
+                <th>Emisión</th>
+                <th>Vencimiento</th>
+                <th>Días restantes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php while ($r = $cert_prox_rows->fetch_assoc()):
+                $fe = $r['fecha_emision'];
+                $de = ($fe && $fe !== '0000-00-00') ? date('d/m/Y', strtotime($fe)) : '';
+                $fv = $r['fecha_vencimiento'];
+                $dv = ($fv && $fv !== '0000-00-00') ? date('d/m/Y', strtotime($fv)) : '';
+              ?>
+                <tr>
+                  <td><?= htmlspecialchars($r['matricula']) ?></td>
+                  <td><?= htmlspecialchars($r['tipo_certificado']) ?></td>
+                  <td data-order="<?= htmlspecialchars($fe) ?>"><?= htmlspecialchars($de) ?></td>
+                  <td data-order="<?= htmlspecialchars($fv) ?>"><?= htmlspecialchars($dv) ?></td>
+                  <td><?= (int)$r['dias_restantes'] ?></td>
+                </tr>
+              <?php endwhile; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Últimos mantenimientos -->
+  <div class="block">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="m-0 text-secondary">Últimos 10 mantenimientos</h6>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover" id="tabla_ult_mant">
+        <thead class="thead-dark">
+          <tr>
+            <th>Fecha</th>
+            <th>Vehículo</th>
+            <th>Marca</th>
+            <th>Modelo</th>
+            <th>Tipo</th>
+            <th>Km Actual</th>
+            <th>Km Próximo</th>
+            <th>Gasto</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php while ($r = $ult_mant->fetch_assoc()):
+            $f = $r['fecha'];
+            $df = ($f && $f !== '0000-00-00') ? date('d/m/Y', strtotime($f)) : '';
+          ?>
+            <tr>
+              <td data-order="<?= htmlspecialchars($f) ?>"><?= htmlspecialchars($df) ?></td>
+              <td><?= htmlspecialchars($r['matricula']) ?></td>
+              <td><?= htmlspecialchars($r['marca']) ?></td>
+              <td><?= htmlspecialchars($r['modelo']) ?></td>
+              <td><?= htmlspecialchars($r['tipo']) ?></td>
+              <td><?= htmlspecialchars($r['kilometraje_actual']) ?></td>
+              <td><?= htmlspecialchars($r['kilometraje_proximo']) ?></td>
+              <td><?= htmlspecialchars($r['gasto_mantenimiento']) ?></td>
+            </tr>
+          <?php endwhile; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <?php require('./layout/footer.php'); ?>
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-  // ===== Altas/Bajas (línea)
-  const abData = <?= json_encode($altas_bajas, JSON_UNESCAPED_UNICODE) ?>;
-  const abLabels = abData.map(r => r.semana_iso);
-  const abAltas = abData.map(r => Number(r.altas));
-  const abBajas = abData.map(r => Number(r.bajas));
+<!-- Scripts base -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 
-  new Chart(document.getElementById('chartAltasBajas').getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: abLabels,
-      datasets: [{
-          label: 'Personal Activo',
-          data: abAltas,
-          tension: .3,
-          borderWidth: 2,
-          fill: false
+<!-- DataTables -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.dataTables.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+<!-- Font Awesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script>
+  /* Normalizar búsquedas (acentos/ñ) */
+  jQuery.extend(jQuery.fn.dataTable.ext.type.search, {
+    string: function(data) {
+      if (!data) return '';
+      if (typeof data !== 'string') return data;
+      return data.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/ñ/g, "n").replace(/Ñ/g, "n").trim().toLowerCase();
+    }
+  });
+
+  /* DataTables */
+  $(function() {
+    const configBase = {
+      dom: 'Bfrtip',
+      buttons: [{
+          extend: 'excelHtml5',
+          text: '<i class="fa-solid fa-file-excel"></i> Excel'
         },
         {
-          label: 'Personal Cesado',
-          data: abBajas,
-          tension: .3,
-          borderWidth: 2,
-          fill: false
+          extend: 'pdfHtml5',
+          text: '<i class="fa-solid fa-file-pdf"></i> PDF'
         }
+      ],
+      language: {
+        lengthMenu: "Mostrar _MENU_ registros por página",
+        zeroRecords: "No se encontraron registros",
+        info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+        infoEmpty: "Mostrando 0 a 0 de 0 registros",
+        infoFiltered: "(filtrado de _MAX_ registros totales)",
+        search: "Buscar:",
+        paginate: {
+          first: "Primero",
+          last: "Último",
+          next: "Siguiente",
+          previous: "Anterior"
+        }
+      }
+    };
+
+    $('#tabla_cert_prox').DataTable($.extend(true, {}, configBase, {
+      order: [
+        [3, 'asc']
       ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: 'bottom'
-        }
+    }));
+    $('#tabla_ult_mant').DataTable($.extend(true, {}, configBase, {
+      order: [
+        [0, 'desc']
+      ]
+    }));
+  });
+
+  /* Charts: datos desde PHP */
+  const mantLabels = <?= json_encode($mant_labels, JSON_UNESCAPED_UNICODE) ?>;
+  const mantPrev = <?= json_encode($mant_prev, JSON_UNESCAPED_UNICODE) ?>;
+  const mantCorr = <?= json_encode($mant_corr, JSON_UNESCAPED_UNICODE) ?>;
+
+  const kmsLabels = <?= json_encode($kms_labels, JSON_UNESCAPED_UNICODE) ?>;
+  const kmsValues = <?= json_encode($kms_values, JSON_UNESCAPED_UNICODE) ?>;
+
+  const certVig = <?= (int)$cert_vig ?>;
+  const certProx = <?= (int)$cert_prox ?>;
+  const certVenc = <?= (int)$cert_venc ?>;
+
+  /* Chart.js (sin colores forzados; usa por defecto para mantener consistencia visual) */
+  (function() {
+    const ctx1 = document.getElementById('chartMant6m').getContext('2d');
+    new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: mantLabels,
+        datasets: [{
+            label: 'Preventivo',
+            data: mantPrev,
+            stack: 'mant'
+          },
+          {
+            label: 'Correctivo',
+            data: mantCorr,
+            stack: 'mant'
+          }
+        ]
       },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: {
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom'
+          }
+        },
+        scales: {
+          x: {
+            stacked: true
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
             precision: 0
           }
         }
       }
-    }
-  });
+    });
 
-  // ===== Cursos (doughnut)
-  const cursosData = <?= json_encode($cursos_resumen, JSON_UNESCAPED_UNICODE) ?>;
-  const cursosLabels = cursosData.map(r => r.resultado);
-  const cursosValues = cursosData.map(r => Number(r.total));
-
-  new Chart(document.getElementById('chartCursos').getContext('2d'), {
-    type: 'doughnut',
-    data: {
-      labels: cursosLabels,
-      datasets: [{
-        data: cursosValues
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          position: 'bottom'
+    const ctx2 = document.getElementById('chartKms8w').getContext('2d');
+    new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels: kmsLabels,
+        datasets: [{
+          label: 'Km totales',
+          data: kmsValues,
+          tension: .25
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom'
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true
+          }
         }
       }
-    }
-  });
+    });
+
+    const ctx3 = document.getElementById('chartCert').getContext('2d');
+    new Chart(ctx3, {
+      type: 'doughnut',
+      data: {
+        labels: ['Vigentes', 'Próximos 30d', 'Vencidos'],
+        datasets: [{
+          data: [certVig, certProx, certVenc]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom'
+          }
+        },
+        cutout: '60%'
+      }
+    });
+  })();
 </script>

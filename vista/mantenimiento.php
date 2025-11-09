@@ -309,7 +309,7 @@ $sql = $conexion->query("
 
                                         <div class="row">
                                             <div class="col-md-6">
-                                                <h6 class="mb-2"><i class="fa fa-screwdriver-wrench"></i> Herramientas utilizadas</h6>
+                                                <h6 class="mb-2"><i class="fa fa-screwdriver-wrench"></i> Repuestos utilizados</h6>
                                                 <?php
                                                 $qh = $conexion->prepare("
                                                     SELECT h.nombre, h.descripcion

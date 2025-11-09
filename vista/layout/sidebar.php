@@ -17,70 +17,70 @@
 
         <li class="red" >
             <a href="unidad_minera.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/unidades.png" class="img-inicio" alt="">
                 <span class="lbl">UNIDADES MINERAS</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="conductores.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/conductor.png" class="img-inicio" alt="">
                 <span class="lbl">CONDUCTORES</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="vehiculos.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/camiones.png" class="img-inicio" alt="">
                 <span class="lbl">VEHICULOS</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="asignar_vehiculos.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/asignar.png" class="img-inicio" alt="">
                 <span class="lbl">ASIGNAR VEHICULOS</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="herramientas.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
-                <span class="lbl">HERRAMIENTAS</span>
+                <img src="../public/img-inicio/rueda-de-repuesto.png" class="img-inicio" alt="">
+                <span class="lbl">REPUESTOS</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="suministros.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/cadena-de-suministro.png" class="img-inicio" alt="">
                 <span class="lbl">SUMINISTROS</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="certificados.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/certificado.png" class="img-inicio" alt="">
                 <span class="lbl">CERTIFICADOS</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="mantenimiento.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/mantenimiento.png" class="img-inicio" alt="">
                 <span class="lbl">MANTENIMIENTO</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="kilometrajes.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/kilometraje.png" class="img-inicio" alt="">
                 <span class="lbl">REGISTRO KILOMETRAJE</span>
             </a>
         </li>
 
         <li class="red" >
             <a href="reportes.php" class="activo">
-                <img src="../public/img-inicio/team.png" class="img-inicio" alt="">
+                <img src="../public/img-inicio/informe.png" class="img-inicio" alt="">
                 <span class="lbl">REPORTES</span>
             </a>
         </li>

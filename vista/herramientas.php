@@ -98,7 +98,7 @@ $sql = $conexion->query("
 </style>
 
 <div class="page-content">
-    <h4 class="text-center text-secondary">LISTA DE HERRAMIENTAS</h4>
+    <h4 class="text-center text-secondary">LISTA DE REPUESTOS</h4>
 
     <!-- Iconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" referrerpolicy="no-referrer" />
@@ -114,7 +114,7 @@ $sql = $conexion->query("
             <table class="table table-bordered table-hover" id="example">
                 <thead>
                     <tr>
-                        <th>NOMBRE DE HERRAMIENTA</th>
+                        <th>NOMBRE DE REPUESTO</th>
                         <th>DESCRIPCIÓN</th>
                         <th>ACCIONES</th>
                     </tr>
@@ -145,7 +145,7 @@ $sql = $conexion->query("
                             <div class="modal-dialog modal-lg">
                                 <div class="modal-content">
                                     <div class="modal-header d-flex justify-content-between">
-                                        <h5 class="modal-title w-100" id="modalEditarLabel<?= $idHerramienta ?>">Modificar herramienta</h5>
+                                        <h5 class="modal-title w-100" id="modalEditarLabel<?= $idHerramienta ?>">Modificar repuesto</h5>
                                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                                             <span aria-hidden="true">&times;</span>
                                         </button>
@@ -157,7 +157,7 @@ $sql = $conexion->query("
 
                                             <div class="form-row">
                                                 <div class="form-group col-md-6">
-                                                    <label>Nombre de herramienta</label>
+                                                    <label>Nombre de repuesto</label>
                                                     <input type="text" name="txtnombreherramienta" class="form-control" placeholder="Nombre de la herramienta" value="<?= $nombreHerramienta ?>">
                                                 </div>
                                                 <div class="form-group col-md-6">

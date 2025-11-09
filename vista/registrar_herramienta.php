@@ -88,7 +88,7 @@ unset($_SESSION['flash']);
 </style>
 
 <div class="page-content">
-    <h4 class="text-center text-secondary">REGISTRO DE HERRAMIENTA</h4>
+    <h4 class="text-center text-secondary">REGISTRO DE REPUESTO</h4>
 
     <div class="card-like">
         <form action="" method="POST" autocomplete="off" class="w-100 js-validate" novalidate>
@@ -97,16 +97,16 @@ unset($_SESSION['flash']);
             <!-- Fila 1 -->
             <div class="form-row">
                 <div class="form-group col-12 col-md-6">
-                    <label for="txtnombre" class="form-label">Nombre de la herramienta</label>
+                    <label for="txtnombre" class="form-label">Nombre deL repuesto</label>
                     <input type="text" id="txtnombre" name="txtnombre" class="form-control" placeholder="Ej: Martillo" maxlength="100" required>
-                    <small class="form-text">Nombre de la herramienta que estás registrando.</small>
-                    <div class="invalid-feedback">Ingrese el nombre de la herramienta.</div>
+                    <small class="form-text">Nombre del repuesto que estás registrando.</small>
+                    <div class="invalid-feedback">Ingrese el nombre del repuesto.</div>
                 </div>
 
                 <div class="form-group col-12 col-md-6">
                     <label for="txtdescripcion" class="form-label">Descripción</label>
                     <input type="text" id="txtdescripcion" name="txtdescripcion" class="form-control" placeholder="Descripción de la herramienta" maxlength="100" required>
-                    <small class="form-text">Breve descripción de la herramienta.</small>
+                    <small class="form-text">Breve descripción del repuesto.</small>
                     <div class="invalid-feedback">Ingrese la descripción.</div>
                 </div>
             </div>

@@ -7,9 +7,9 @@ if (isset($_GET['id'])) {
     $stmt = $conexion->prepare($sql);
     $stmt->bind_param("i", $idHerramienta);
     if ($stmt->execute()) {
-        $_SESSION['flash'] = ['tipo' => 'success', 'titulo' => 'Éxito', 'mensaje' => 'Herramienta eliminada con éxito'];
+        $_SESSION['flash'] = ['tipo' => 'success', 'titulo' => 'Éxito', 'mensaje' => 'Repuesto eliminado con éxito'];
     } else {
-        $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'Hubo un problema al eliminar la herramienta'];
+        $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'Hubo un problema al eliminar el repuesto'];
     }
     $stmt->close();
     header('Location: herramientas.php');

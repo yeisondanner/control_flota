@@ -219,7 +219,7 @@ $suministros = $conexion->query("
             <div class="form-row">
                 <div class="form-group col-12">
                     <fieldset id="fs-herramientas">
-                        <legend>Herramientas utilizadas</legend>
+                        <legend>Repuestos utilizados</legend>
                         <div class="choices-wrap">
                             <?php while ($h = $herramientas->fetch_object()): ?>
                                 <div class="form-check">
@@ -230,7 +230,7 @@ $suministros = $conexion->query("
                                 </div>
                             <?php endwhile; ?>
                         </div>
-                        <div class="muted">Si el mantenimiento es <strong>Correctivo</strong>, debe seleccionar al menos una herramienta.</div>
+                        <div class="muted">Si el mantenimiento es <strong>Correctivo</strong>, debe seleccionar al menos un repuesto.</div>
                     </fieldset>
                 </div>
             </div>

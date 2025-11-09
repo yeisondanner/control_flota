@@ -16,16 +16,16 @@ if (isset($_POST['btnmodificar'])) {
 
     if ($count > 0) {
         // Si ya existe una herramienta con ese nombre, mostrar un mensaje de error
-        $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'El nombre de la herramienta ya existe.'];
+        $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'El nombre del repuesto ya existe.'];
     } else {
         // Si no existe, proceder con la actualización
         $sqlUpdate = "UPDATE herramientas SET nombre = ?, descripcion = ? WHERE id_herramientas = ?";
         $stmtUpdate = $conexion->prepare($sqlUpdate);
         $stmtUpdate->bind_param("ssi", $nombreHerramienta, $descripcion, $idHerramienta);
         if ($stmtUpdate->execute()) {
-            $_SESSION['flash'] = ['tipo' => 'success', 'titulo' => 'Éxito', 'mensaje' => 'Herramienta modificada con éxito'];
+            $_SESSION['flash'] = ['tipo' => 'success', 'titulo' => 'Éxito', 'mensaje' => 'Repuesto modificado con éxito'];
         } else {
-            $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'Hubo un problema al modificar la herramienta'];
+            $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Error', 'mensaje' => 'Hubo un problema al modificar el repuesto'];
         }
         $stmtUpdate->close();
     }
