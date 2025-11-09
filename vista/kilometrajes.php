@@ -6,33 +6,65 @@ if (empty($_SESSION['nombre']) && empty($_SESSION['apellidos'])) {
 }
 
 include "../modelo/conexion.php";
-/* ⬇️ Controlador de eliminación (PRG) */
-include "../controlador/controlador_eliminar_kilometraje.php";
+
+// Verificar si el usuario es conductor
+$es_conductor = isset($_SESSION['rol']) && $_SESSION['rol'] === 'Conductor';
+$id_conductor_sesion = isset($_SESSION['id_conductor']) ? (int)$_SESSION['id_conductor'] : 0;
+
+/* ⬇️ Controlador de eliminación (PRG) - solo para usuarios no conductores */
+if (!$es_conductor) {
+    include "../controlador/controlador_eliminar_kilometraje.php";
+}
 
 /* Flash */
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
-/* Consulta principal */
-$sql = $conexion->query("
-    SELECT 
-        ks.id_kilometrajesemanal AS id_km,
-        ks.kilometraje,
-        ks.horas,
-        ks.fecha_registro,
-        p.nombres,
-        p.apellidos,
-        p.dni,
-        v.matricula,
-        v.marca,
-        v.modelo
-    FROM kilometraje_semanal ks
-    JOIN conductor c ON c.id_conductor = ks.id_conductor
-    JOIN usuario u   ON u.id_usuario = c.id_usuario
-    JOIN persona p   ON p.id_persona = u.id_persona
-    JOIN vehiculos v ON v.id_vehiculo = ks.id_vehiculo
-    ORDER BY ks.fecha_registro DESC, id_km DESC
-");
+/* Consulta principal - filtrar por conductor si es conductor */
+if ($es_conductor && $id_conductor_sesion > 0) {
+    // Si es conductor, mostrar solo sus registros
+    $sql = $conexion->query("
+        SELECT 
+            ks.id_kilometrajesemanal AS id_km,
+            ks.kilometraje,
+            ks.horas,
+            ks.fecha_registro,
+            p.nombres,
+            p.apellidos,
+            p.dni,
+            v.matricula,
+            v.marca,
+            v.modelo
+        FROM kilometraje_semanal ks
+        JOIN conductor c ON c.id_conductor = ks.id_conductor
+        JOIN usuario u   ON u.id_usuario = c.id_usuario
+        JOIN persona p   ON p.id_persona = u.id_persona
+        JOIN vehiculos v ON v.id_vehiculo = ks.id_vehiculo
+        WHERE ks.id_conductor = $id_conductor_sesion
+        ORDER BY ks.fecha_registro DESC, id_km DESC
+    ");
+} else {
+    // Usuario normal - mostrar todos los registros
+    $sql = $conexion->query("
+        SELECT 
+            ks.id_kilometrajesemanal AS id_km,
+            ks.kilometraje,
+            ks.horas,
+            ks.fecha_registro,
+            p.nombres,
+            p.apellidos,
+            p.dni,
+            v.matricula,
+            v.marca,
+            v.modelo
+        FROM kilometraje_semanal ks
+        JOIN conductor c ON c.id_conductor = ks.id_conductor
+        JOIN usuario u   ON u.id_usuario = c.id_usuario
+        JOIN persona p   ON p.id_persona = u.id_persona
+        JOIN vehiculos v ON v.id_vehiculo = ks.id_vehiculo
+        ORDER BY ks.fecha_registro DESC, id_km DESC
+    ");
+}
 ?>
 
 <?php require('./layout/topbar.php'); ?>
@@ -149,7 +181,9 @@ $sql = $conexion->query("
                         <th>KILOMETRAJE</th>
                         <th>HORA</th>
                         <th>FECHA</th>
+                        <?php if (!$es_conductor): ?>
                         <th>ACCIONES</th>
+                        <?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
@@ -199,6 +233,7 @@ $sql = $conexion->query("
                             <td class="text-right"><?= $km ?></td>
                             <td class="text-center"><?= $hora ?></td>
                             <td><?= $fecha ?></td>
+                            <?php if (!$es_conductor): ?>
                             <td class="text-center col-acciones">
                                 <div class="acciones-boton">
                                     <a href="kilometrajes.php?del=<?= $idKm ?>" class="btn btn-danger btn-sm" title="Eliminar" onclick="confirmarEliminar(event)">
@@ -206,6 +241,7 @@ $sql = $conexion->query("
                                     </a>
                                 </div>
                             </td>
+                            <?php endif; ?>
                         </tr>
                     <?php endwhile; ?>
                 </tbody>
@@ -255,18 +291,21 @@ $sql = $conexion->query("
             },
             autoWidth: false,
             order: [], // respeta el ORDER BY del servidor
-            columnDefs: [{
+            columnDefs: [
+                <?php if (!$es_conductor): ?>
+                {
                     orderable: false,
                     targets: 7
-                }, // ACCIONES (ahora es la col 8 -> índice 7)
-                {
-                    targets: 0,
-                    responsivePriority: 1
-                }, // CONDUCTOR
+                }, // ACCIONES (columna 8 -> índice 7)
                 {
                     targets: 7,
                     responsivePriority: 2
-                } // ACCIONES
+                }, // ACCIONES
+                <?php endif; ?>
+                {
+                    targets: 0,
+                    responsivePriority: 1
+                } // CONDUCTOR
             ],
             language: {
                 lengthMenu: "Mostrar _MENU_ registros por página",

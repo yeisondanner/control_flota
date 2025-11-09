@@ -1,18 +1,15 @@
 <?php
 /**
- * Valida si el usuario es conductor (por rol o por sesión) y redirige a kilometrajes.php si intenta acceder a otros módulos
+ * Valida si el usuario es conductor por rol y redirige a kilometrajes.php si intenta acceder a otros módulos
  * Este archivo debe incluirse después de session_start() en cada página
  * (excepto kilometrajes.php y registrar_kilometraje.php que son permitidas para conductores)
  */
 
-// Verificar si el usuario es conductor por:
-// 1. Sesión es_conductor = true (marcó checkbox al iniciar sesión)
-// 2. Rol "Conductor" en la base de datos (validación adicional)
-$es_conductor_session = isset($_SESSION['es_conductor']) && $_SESSION['es_conductor'] === true;
-$es_conductor_rol = isset($_SESSION['rol']) && $_SESSION['rol'] === 'Conductor';
+// Verificar si el usuario tiene rol "Conductor"
+$es_conductor = isset($_SESSION['rol']) && $_SESSION['rol'] === 'Conductor';
 
-// Si el usuario es conductor por cualquiera de las dos formas
-if ($es_conductor_session || $es_conductor_rol) {
+// Si el usuario es conductor, solo puede acceder a kilometrajes.php y registrar_kilometraje.php
+if ($es_conductor) {
     // Obtener el nombre del archivo actual
     $archivo_actual = basename($_SERVER['PHP_SELF']);
     

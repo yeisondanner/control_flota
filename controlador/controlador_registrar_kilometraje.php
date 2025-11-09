@@ -1,7 +1,16 @@
 <?php
 if (isset($_POST['btnregistrar_km'])) {
-    // Sanitizar obligatorios
-    $id_conductor = isset($_POST['id_conductor']) ? (int)$_POST['id_conductor'] : 0;
+    // Verificar si el usuario es conductor
+    $es_conductor = isset($_SESSION['rol']) && $_SESSION['rol'] === 'Conductor';
+    
+    // Si es conductor, usar el id_conductor de la sesión
+    if ($es_conductor && isset($_SESSION['id_conductor'])) {
+        $id_conductor = (int)$_SESSION['id_conductor'];
+    } else {
+        // Si no es conductor, obtener del POST
+        $id_conductor = isset($_POST['id_conductor']) ? (int)$_POST['id_conductor'] : 0;
+    }
+    
     $id_vehiculo  = isset($_POST['id_vehiculo'])  ? (int)$_POST['id_vehiculo']  : 0;
 
     // Opcionales
@@ -127,6 +136,11 @@ if (isset($_POST['btnregistrar_km'])) {
     }
     $ins->close();
 
-    header("Location: registrar_kilometraje.php");
+    // Si es conductor, redirigir a kilometrajes.php después de registrar
+    if ($es_conductor) {
+        header("Location: kilometrajes.php");
+    } else {
+        header("Location: registrar_kilometraje.php");
+    }
     exit;
 }

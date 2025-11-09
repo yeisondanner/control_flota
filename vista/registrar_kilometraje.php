@@ -6,6 +6,11 @@ if (empty($_SESSION['nombre']) && empty($_SESSION['apellidos'])) {
 }
 
 include "../modelo/conexion.php";
+
+// Verificar si el usuario es conductor
+$es_conductor = isset($_SESSION['rol']) && $_SESSION['rol'] === 'Conductor';
+$id_conductor_sesion = isset($_SESSION['id_conductor']) ? (int)$_SESSION['id_conductor'] : 0;
+
 /* Controlador (PRG) */
 include "../controlador/controlador_registrar_kilometraje.php";
 
@@ -14,13 +19,26 @@ $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
 /* Conductores (persona <- usuario <- conductor) */
-$conductores = $conexion->query("
-  SELECT c.id_conductor, p.nombres, p.apellidos, p.dni
-  FROM conductor c
-  JOIN usuario u  ON u.id_usuario = c.id_usuario
-  JOIN persona p  ON p.id_persona = u.id_persona
-  ORDER BY p.apellidos ASC, p.nombres ASC
-");
+if ($es_conductor && $id_conductor_sesion > 0) {
+    // Si es conductor, solo cargar sus datos
+    $conductores = $conexion->query("
+      SELECT c.id_conductor, p.nombres, p.apellidos, p.dni
+      FROM conductor c
+      JOIN usuario u  ON u.id_usuario = c.id_usuario
+      JOIN persona p  ON p.id_persona = u.id_persona
+      WHERE c.id_conductor = $id_conductor_sesion
+      LIMIT 1
+    ");
+} else {
+    // Usuario normal - cargar todos los conductores
+    $conductores = $conexion->query("
+      SELECT c.id_conductor, p.nombres, p.apellidos, p.dni
+      FROM conductor c
+      JOIN usuario u  ON u.id_usuario = c.id_usuario
+      JOIN persona p  ON p.id_persona = u.id_persona
+      ORDER BY p.apellidos ASC, p.nombres ASC
+    ");
+}
 ?>
 
 <?php require('./layout/topbar.php'); ?>
@@ -109,15 +127,26 @@ $conductores = $conexion->query("
             <div class="form-row">
                 <div class="form-group col-12 col-md-6">
                     <label for="conductor" class="form-label">Conductor</label>
-                    <select id="conductor" name="id_conductor" class="form-control" required>
+                    <select id="conductor" name="id_conductor" class="form-control" required <?= $es_conductor ? 'disabled' : '' ?>>
                         <option value="">-- Seleccione un conductor --</option>
-                        <?php while ($c = $conductores->fetch_object()): ?>
-                            <option value="<?= (int)$c->id_conductor ?>">
+                        <?php 
+                        $conductor_seleccionado = null;
+                        while ($c = $conductores->fetch_object()): 
+                            $selected = ($es_conductor && $c->id_conductor == $id_conductor_sesion) ? 'selected' : '';
+                            if ($selected) {
+                                $conductor_seleccionado = $c->id_conductor;
+                            }
+                        ?>
+                            <option value="<?= (int)$c->id_conductor ?>" <?= $selected ?>>
                                 <?= htmlspecialchars($c->apellidos . ' ' . $c->nombres, ENT_QUOTES, 'UTF-8') ?>
                                 (DNI: <?= htmlspecialchars($c->dni ?? '', ENT_QUOTES, 'UTF-8') ?>)
                             </option>
                         <?php endwhile; ?>
                     </select>
+                    <?php if ($es_conductor): ?>
+                        <!-- Campo oculto para enviar el id_conductor cuando está deshabilitado -->
+                        <input type="hidden" name="id_conductor" value="<?= $id_conductor_sesion ?>">
+                    <?php endif; ?>
                     <small class="form-text">Solo se mostrarán los vehículos asignados al conductor.</small>
                     <div class="invalid-feedback">Seleccione un conductor.</div>
                 </div>
@@ -220,19 +249,18 @@ $conductores = $conexion->query("
     })();
 
     // Cargar vehículos por conductor (AJAX)
-    $('#conductor').on('change', function() {
-        const id = this.value;
+    function cargarVehiculos(idConductor) {
         const $veh = $('#vehiculo');
         const $info = $('#info_mant');
         $veh.prop('disabled', true).html('<option value="">Cargando...</option>');
         $info.val('Buscando mantenimiento...');
-        if (!id) {
+        if (!idConductor) {
             $veh.html('<option value="">-- Seleccione primero un conductor --</option>');
             $info.val('Seleccione un vehículo');
             return;
         }
         $.getJSON('../controlador/controlador_ajax_vehiculos_por_conductor.php', {
-                id_conductor: id
+                id_conductor: idConductor
             })
             .done(function(resp) {
                 const items = resp?.vehiculos || [];
@@ -253,6 +281,17 @@ $conductores = $conexion->query("
                 $veh.prop('disabled', false);
                 $info.val('Error de consulta');
             });
+    }
+
+    // Si es conductor, cargar vehículos automáticamente al cargar la página
+    <?php if ($es_conductor && $id_conductor_sesion > 0): ?>
+    $(document).ready(function() {
+        cargarVehiculos(<?= $id_conductor_sesion ?>);
+    });
+    <?php endif; ?>
+
+    $('#conductor').on('change', function() {
+        cargarVehiculos(this.value);
     });
 
     // Al elegir vehículo, pedir límites de mantenimiento (km/hora) para mostrarlos

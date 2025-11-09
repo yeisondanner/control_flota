@@ -1,5 +1,15 @@
 <?php
 
+// Verificar si el usuario es conductor - los conductores no pueden eliminar
+$es_conductor = isset($_SESSION['rol']) && $_SESSION['rol'] === 'Conductor';
+
+if ($es_conductor) {
+    // Los conductores no pueden eliminar registros
+    $_SESSION['flash'] = ['tipo' => 'error', 'titulo' => 'Acceso denegado', 'mensaje' => 'No tiene permisos para eliminar registros.'];
+    header("Location: ../vista/kilometrajes.php");
+    exit;
+}
+
 if (isset($_GET['del'])) {
     $idKm = (int)$_GET['del'];
 

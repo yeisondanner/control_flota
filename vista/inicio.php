@@ -4,6 +4,10 @@ if (empty($_SESSION['nombre']) && empty($_SESSION['apellidos'])) {
   header('location:login/login.php');
   exit;
 }
+
+// Validar acceso de conductor: solo pueden ver kilometrajes
+include "../modelo/validar_conductor.php";
+
 include "../modelo/conexion.php";
 date_default_timezone_set('America/Lima');
 

@@ -1,6 +1,12 @@
+<?php
+// Verificar si el usuario es conductor
+$es_conductor = isset($_SESSION['rol']) && $_SESSION['rol'] === 'Conductor';
+?>
 
 <nav class="side-menu">
     <ul class="side-menu-list p-0">
+        <?php if (!$es_conductor): ?>
+        <!-- Menú completo para usuarios normales -->
         <li class="red" >
             <a href="inicio.php" class="activo">
                 <img src="../public/img-inicio/house.png" class="img-inicio" alt="">
@@ -84,6 +90,15 @@
                 <span class="lbl">REPORTES</span>
             </a>
         </li>
+        <?php else: ?>
+        <!-- Menú limitado para conductores: solo kilometrajes -->
+        <li class="red" >
+            <a href="kilometrajes.php" class="activo">
+                <img src="../public/img-inicio/kilometraje.png" class="img-inicio" alt="">
+                <span class="lbl">REGISTRO KILOMETRAJE</span>
+            </a>
+        </li>
+        <?php endif; ?>
 
 
 

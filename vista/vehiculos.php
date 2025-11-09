@@ -5,6 +5,9 @@ if (empty($_SESSION['nombre']) && empty($_SESSION['apellidos'])) {
     exit;
 }
 
+// Validar acceso de conductor: solo pueden ver kilometrajes
+include "../modelo/validar_conductor.php";
+
 include "../modelo/conexion.php";
 /* Controladores ANTES del HTML (para que header('Location') funcione) */
 include "../controlador/controlador_modificar_vehiculo.php";
