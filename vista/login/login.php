@@ -56,11 +56,15 @@
                             name="password" title="ingrese su clave para ingresar" autocomplete="current-password">
                     </div>
                 </div>
-                <div class="view">
-                    <div class="fas fa-eye verPassword" onclick="vista()" id="verPassword"></div>
+                <div class="input-div pass">
+                    <div class="i">
+                        <i class="fas fa-check"></i>
+                    </div>
+                    <div class="div">
+                        <h5>Soy conductor</h5>
+                        <input type="checkbox" id="checkobox" class="checkobox">
+                    </div>
                 </div>
-
-
                 <div class="text-center">
                     <a class="font-italic isai5" href="">Olvidé mi contraseña</a>
                 </div>
