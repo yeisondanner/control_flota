@@ -1,0 +1,11 @@
+{
+  "name": "sis_vpice/contratos",
+  "description": "Exportación de contratos DOCX con PhpOffice/PhpWord",
+  "type": "project",
+  "require": {
+    "php": ">=7.4",
+    "phpoffice/phpword": "^1.3",
+    "dompdf/dompdf": "2.0",
+    "mpdf/mpdf": "^6.1"
+  }
+}
